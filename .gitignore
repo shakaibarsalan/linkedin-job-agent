@@ -1,0 +1,79 @@
+# ===========================================================================
+#  SECRETS — nothing here may ever reach the repository.
+# ===========================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Personal data captured at runtime
+data/
+resumes/
+config/answers.yaml
+
+# ── Python ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# ── Testing & tooling ──────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+.nox/
+
+# ── Logs ───────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Backups ────────────────────────────────────────────────────────────
+backups/
+*.sql.gz
+*.dump
+*.tar.gz
+
+# ── Editors / OS ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Docker ─────────────────────────────────────────────────────────────
+docker-compose.override.yml
+

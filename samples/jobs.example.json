@@ -1,0 +1,35 @@
+{
+  "source": "sample",
+  "jobs": [
+    {
+      "linkedin_job_id": "9000000001",
+      "title": "Backend Engineer (Python)",
+      "company": "Northwind Analytics",
+      "location": "Remote",
+      "url": "https://example.com/jobs/9000000001",
+      "workplace_type": "remote",
+      "employment_type": "full-time",
+      "description": "Northwind Analytics is hiring a backend engineer to own our ingestion API. You will build FastAPI services on PostgreSQL and Redis, ship them in Docker on AWS, and keep them tested with pytest in GitHub Actions. We want 3+ years of production Python, comfort with SQL, and someone who writes things down. Nice to have: Celery, Terraform, Kafka."
+    },
+    {
+      "linkedin_job_id": "9000000002",
+      "title": "Principal Platform Engineer",
+      "company": "Contoso Cloud",
+      "location": "London, United Kingdom",
+      "url": "https://example.com/jobs/9000000002",
+      "workplace_type": "hybrid",
+      "employment_type": "full-time",
+      "description": "Contoso Cloud is looking for a principal engineer with 12+ years of experience leading platform teams. You will set technical direction for Kubernetes, Kafka and Terraform across forty services, own our multi-region AWS strategy, and mentor staff engineers. A Kubernetes certification (CKA) and experience with Go and gRPC are required."
+    },
+    {
+      "linkedin_job_id": "9000000003",
+      "title": "Junior Python Developer",
+      "company": "Fabrikam Labs",
+      "location": "Remote",
+      "url": "https://example.com/jobs/9000000003",
+      "workplace_type": "remote",
+      "employment_type": "full-time",
+      "description": "Fabrikam Labs builds internal tools for logistics teams. As a junior Python developer you will write Flask REST APIs, background jobs in Celery, and tests in pytest, with a senior engineer reviewing your work. We are happy to teach Docker and AWS. One year of Python, at work or in serious side projects, is enough."
+    }
+  ]
+}

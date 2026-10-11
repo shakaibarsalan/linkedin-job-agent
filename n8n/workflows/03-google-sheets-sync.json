@@ -1,0 +1,418 @@
+{
+  "name": "LinkedIn Agent - Google Sheets Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "baecc900-51e6-4dba-86f3-53fe8fb9dbb5",
+      "name": "Every 3 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -592,
+        2688
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "2502f332-4ea6-44d2-9179-6e95afe894aa",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -592,
+        2880
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://api:8000/api/v1/export/applications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "500"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "752f2b3c-20d7-4b8c-a30a-017c424d91cd",
+      "name": "Fetch applications",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -336,
+        2768
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "LinkedIn Agent API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The API already returns flat rows, so there is nothing to join here.\n// This only renames fields to human column headers and adds two derived\n// columns that are genuinely useful when scanning a sheet on a phone.\nconst LABEL = {\n  pending_review: 'WAITING FOR YOU',\n  approved:       'SHORTLISTED - apply yourself',\n  submitted:      'applied',\n  skipped:        'skipped',\n  needs_manual:   'NEEDS YOUR INPUT',\n};\n\nreturn $input.all().map(({ json: r }) => ({\n  json: {\n    'ID':          r.application_id,\n    'Status':      LABEL[r.status] ?? r.status,\n    'Score':       r.score ?? '',\n    'Job Title':   r.title,\n    'Company':     r.company,\n    'Location':    r.location,\n    'Resume Used': r.resume,\n    // Surfaced as its own column: an unsupported claim is the one thing\n    // worth spotting at a glance before approving anything.\n    'Honesty Flag': r.cover_letter_flagged ? 'REVIEW LETTER' : '',\n    'Why Waiting': r.review_reason || r.skip_reason || '',\n    'Discovered':  r.discovered,\n    'Submitted':   r.submitted,\n    'Link':        r.url,\n  },\n}));"
+      },
+      "id": "254196ef-9bc1-495d-9ec4-6a01a7a56f45",
+      "name": "Shape for the sheet",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        2688
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "0",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json[\"ID\"] }}",
+            "Status": "={{ $json[\"Status\"] }}",
+            "Score": "={{ $json[\"Score\"] }}",
+            "Job Title": "={{ $json[\"Job Title\"] }}",
+            "Company": "={{ $json[\"Company\"] }}",
+            "Location": "={{ $json[\"Location\"] }}",
+            "Resume Used": "={{ $json[\"Resume Used\"] }}",
+            "Honesty Flag": "={{ $json[\"Honesty Flag\"] }}",
+            "Why Waiting": "={{ $json[\"Why Waiting\"] }}",
+            "Discovered": "={{ $json[\"Discovered\"] }}",
+            "Submitted": "={{ $json[\"Submitted\"] }}",
+            "Link": "={{ $json[\"Link\"] }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Title",
+              "displayName": "Job Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resume Used",
+              "displayName": "Resume Used",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Honesty Flag",
+              "displayName": "Honesty Flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Why Waiting",
+              "displayName": "Why Waiting",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Discovered",
+              "displayName": "Discovered",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Submitted",
+              "displayName": "Submitted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Approve?",
+              "displayName": "Approve?",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "a37d301c-bbb2-4a3d-a524-921b2929a35a",
+      "name": "Sync to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        176,
+        2688
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "REPLACE_ME",
+          "name": "Google Service Account account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const n = $input.all().length;\nreturn [{ json: {\n  title: 'Sheet updated',\n  body: `${n} application row${n === 1 ? '' : 's'} synced to Google Sheets.`,\n} }];"
+      },
+      "id": "57574cdc-9cf8-428b-95ae-1b6c2fc3e21a",
+      "name": "Sync summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        2608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  title: 'Google Sheets sync failed',\n  body: [\n    'The application export could not be written to the sheet.',\n    '',\n    'Usual causes:',\n    '  - the Google credential expired or was revoked',\n    '  - the sheet ID is wrong, or the sheet was renamed/deleted',\n    '  - the tab is not called \"Applications\"',\n    '',\n    'Nothing else is affected - this workflow only reads and reports.',\n  ].join('\\n'),\n} }];"
+      },
+      "id": "58a7ca92-b500-4b25-bf31-383872ad524c",
+      "name": "Sync failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        2816
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Google Sheets sync\n\nMirrors every application into a spreadsheet you can read on your phone — no SSH, no dashboard.\n\n### Set up once\n\n- Put your Sheet ID in **Sync to Google Sheet** (the tab is gid 0)\n- Header row: `ID, Status, Score, Job Title, Company, Location, Resume Used, Honesty Flag, Why Waiting, Discovered, Submitted, Link`\n- Attach your Google and API-key credentials\n\n### Your Approve? column is safe\n\nThis node writes twelve named columns and nothing else. Add an **Approve?** column to the right of `Link` and type `yes` in it — the sync will never overwrite what you put there.\n\nExplicit column mapping rather than auto-map, so that guarantee is ours rather than a side effect of how n8n happens to treat unmapped columns.\n\n### How it behaves\n\n`appendOrUpdate` matched on **ID**, so re-running updates rows in place rather than appending duplicates. Safe to run as often as you like.\n\nEvery 3 hours, or hit **Execute Workflow** any time.\n\nThe tab is resolved by **gid**, not by name, so renaming the tab will not break the sync.\n\n### Why these columns\n\n`Honesty Flag` is its own column on purpose: an unsupported claim in a cover letter is the one thing worth spotting at a glance before approving anything from a phone.\n\n`Why Waiting` merges review and skip reasons, so scanning down the sheet tells you what needs you and what the agent handled itself.",
+        "height": 720,
+        "width": 440,
+        "color": 3
+      },
+      "id": "296abf35-edd9-4814-86cb-c6dcf2b715ff",
+      "name": "Setup notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        752,
+        2720
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "d1000000-0000-4000-8000-000000000001",
+      "name": "Called by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -592,
+        3060
+      ]
+    }
+  ],
+  "connections": {
+    "Every 3 hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch applications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Fetch applications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch applications": {
+      "main": [
+        [
+          {
+            "node": "Shape for the sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sync failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape for the sheet": {
+      "main": [
+        [
+          {
+            "node": "Sync to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync to Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sync summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sync failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Fetch applications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "callerPolicy": "any"
+  },
+  "tags": [
+    {
+      "name": "linkedin-agent"
+    }
+  ]
+}

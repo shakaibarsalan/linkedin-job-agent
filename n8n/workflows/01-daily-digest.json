@@ -1,0 +1,150 @@
+{
+  "name": "LinkedIn Agent - Daily Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9,18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "Morning and evening",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -600,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One message answering two questions: what needs me, and what is stuck.\n//\n// Built from /export/applications because that is the only endpoint\n// carrying titles and companies. The plain /applications list returns\n// job_id only, so a digest built on it prints rows of blank names --\n// which reads as a broken agent rather than a data-shape mistake.\n//\n// The ASK goes last on purpose. On a phone the last line is the one\n// that gets acted on; a digest that buries it under statistics is read\n// and then forgotten.\n\nconst nl = String.fromCharCode(10);\nconst rows = $input.all().map((i) => i.json).filter((r) => r && r.status);\n\nconst waiting = rows.filter((r) => r.status === 'pending_review');\nconst queued  = rows.filter((r) => r.status === 'approved');\nconst applied = rows.filter((r) => r.status === 'submitted');\n\nconst lines = [];\n\nif (waiting.length) {\n  waiting.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));\n  lines.push(`${waiting.length} job${waiting.length === 1 ? '' : 's'} waiting for your yes:`, '');\n  for (const a of waiting.slice(0, 10)) {\n    lines.push(`  ${a.score ?? ''}  ${a.title ?? ''}`);\n    if (a.company) lines.push(`      ${a.company}`);\n    if (a.cover_letter_flagged) lines.push('      CHECK THE LETTER before approving');\n  }\n  if (waiting.length > 10) lines.push(`  ... and ${waiting.length - 10} more in the sheet`);\n} else {\n  lines.push('Nothing is waiting for your review.');\n}\n\nif (queued.length) {\n  lines.push('', `${queued.length} on your shortlist, not applied to yet.`);\n  lines.push('Open each one, read the letter, and apply yourself.');\n}\n\nlines.push('', `Applied so far: ${applied.length}`);\n\nif (waiting.length) {\n  lines.push('', 'To approve: open the sheet, type yes in the Approve? column.');\n  lines.push('It moves to your shortlist within ten minutes.');\n}\n\nreturn [{ json: { title: 'Job hunt update', body: lines.join(nl) } }];"
+      },
+      "id": "c1000000-0000-4000-8000-000000000006",
+      "name": "Write the digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Your daily update\n\nTwice a day, 9am and 6pm, this tells you two things and nothing else:\n\n1. **What is waiting for your yes**, with scores.\n2. **What is on your shortlist** and still needs you to apply.\n\n### Why it exists\n\nJobs reach the sheet quietly. Without this you would have to remember to go and look.\n\nWire the output of **Write the digest** to whatever channel you actually read (Telegram, email, Slack).",
+        "height": 460,
+        "width": 400,
+        "color": 6
+      },
+      "id": "c1000000-0000-4000-8000-000000000007",
+      "name": "What this is",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://api:8000/api/v1/export/applications",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "500"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "c1000000-0000-4000-8000-000000000010",
+      "name": "Get every application",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -360,
+        380
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "LinkedIn Agent API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "connections": {
+    "Morning and evening": {
+      "main": [
+        [
+          {
+            "node": "Get every application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Get every application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get every application": {
+      "main": [
+        [
+          {
+            "node": "Write the digest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write the digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "linkedin-agent"
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+name: CI
+
+# Quality gate. Runs on every push and PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push supersedes an in-flight run on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Lint & type check ─────────────────────────────────────────────────
+  quality:
+    name: Lint & type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff (lint)
+        working-directory: backend
+        run: ruff check app tests --output-format=github
+
+      - name: Ruff (format check)
+        working-directory: backend
+        run: ruff format --check app tests
+
+      - name: mypy (strict type check)
+        working-directory: backend
+        run: mypy app
+
+  # ── Unit tests ────────────────────────────────────────────────────────
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests with coverage
+        working-directory: backend
+        env:
+          ENVIRONMENT: test
+          API_KEY: ci-test-api-key-0000000000
+          AI_PROVIDER: rules
+          LOG_LEVEL: WARNING
+          LOG_DIR: ""
+        run: pytest --cov=app --cov-report=term-missing --cov-report=xml -q
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: backend/coverage.xml
+          retention-days: 7
+
+  # ── Integration tests against a real Postgres ─────────────────────────
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: linkedin
+          POSTGRES_PASSWORD: linkedin
+          POSTGRES_DB: linkedin_agent
+        ports: ["15434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U linkedin -d linkedin_agent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # Applies every migration STRICT to a brand-new database, exactly as a
+      # fresh volume would.
+      - name: Migration cleanliness (fresh init must apply every migration)
+        env:
+          PGPASSWORD: linkedin
+        run: |
+          set -e
+          psql -h localhost -p 15434 -U linkedin -d postgres -v ON_ERROR_STOP=1 \
+            -c "DROP DATABASE IF EXISTS migration_check;" \
+            -c "CREATE DATABASE migration_check;"
+          for f in database/migrations/*.sql; do
+            echo "==> $(basename "$f")"
+            psql -h localhost -p 15434 -U linkedin -d migration_check \
+              -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+          done
+          echo "PASS: a fresh database applies every migration with no error"
+
+      # Re-applying the same migrations must be a no-op. This is what makes it
+      # safe to run migrations on every container start.
+      - name: Migration idempotency (re-running must be a no-op)
+        env:
+          PGPASSWORD: linkedin
+        run: |
+          set -e
+          for f in database/migrations/*.sql; do
+            psql -h localhost -p 15434 -U linkedin -d migration_check \
+              -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+          done
+          echo "PASS: migrations are idempotent"
+
+      - name: Run integration tests
+        working-directory: backend
+        env:
+          ENVIRONMENT: test
+          API_KEY: ci-test-api-key-0000000000
+          AI_PROVIDER: rules
+          DATABASE_URL: postgresql+asyncpg://linkedin:linkedin@localhost:15434/linkedin_agent
+          LOG_LEVEL: WARNING
+          LOG_DIR: ""
+        run: pytest -q -m "integration or not integration"
+
+  # ── Docker build validation ───────────────────────────────────────────
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: false
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Validate compose file
+        run: |
+          set -e
+          cp .env.example .env
+          cp config/answers.example.yaml config/answers.yaml
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml --profile n8n config --quiet
+          echo "PASS: docker-compose.yml is valid"
+          rm -f .env config/answers.yaml
+
+  # ── Security checks ───────────────────────────────────────────────────
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the secret scan can look at every commit, not just
+          # the tip. A secret committed and later removed is still leaked.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install audit tooling
+        run: pip install pip-audit ruff
+
+      - name: Dependency vulnerability audit
+        working-directory: backend
+        # Non-blocking: a transitive advisory should not stop a security fix
+        # from shipping. It is surfaced in the log for triage.
+        run: pip-audit -r requirements.txt --desc || echo "::warning::pip-audit reported findings"
+
+      - name: Bandit security lint
+        working-directory: backend
+        run: ruff check app --select S --output-format=github
+
+      - name: Verify no secrets are committed
+        run: |
+          set -e
+          fail=0
+
+          if git ls-files | grep -E '^\.env$|^\.env\.(production|local)$'; then
+            echo "::error::A .env file is tracked in git"
+            fail=1
+          fi
+
+          # Look for real-looking credentials, excluding the documented
+          # placeholders and the CI test key above.
+          if git grep -nE '(sk-[A-Za-z0-9]{32,}|ghp_[A-Za-z0-9]{36}|AKIA[0-9A-Z]{16})' \
+               -- ':!*.example' ':!.github/workflows/*' 2>/dev/null; then
+            echo "::error::A credential-shaped string was found in the repository"
+            fail=1
+          fi
+
+          [ "$fail" -eq 0 ] && echo "PASS: no secrets detected"
+          exit $fail
+
+  # ── Aggregate gate ────────────────────────────────────────────────────
+  # A single required status check for branch protection.
+  ci-passed:
+    name: CI passed
+    runs-on: ubuntu-latest
+    needs: [quality, test, integration, docker-build, security]
+    if: always()
+    steps:
+      - name: Verify every job succeeded
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "Job results: $results"
+          for r in $results; do
+            if [ "$r" != "success" ]; then
+              echo "::error::A required CI job did not succeed"
+              exit 1
+            fi
+          done
+          echo "All CI checks passed."

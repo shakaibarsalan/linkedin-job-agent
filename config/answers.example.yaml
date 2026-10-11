@@ -1,0 +1,137 @@
+# ===========================================================================
+#  Candidate profile — the authoritative answer source for screening questions
+#
+#  Copy it and fill in your own facts (config/answers.yaml is gitignored):
+#
+#    cp config/answers.example.yaml config/answers.yaml
+#
+#  WHY THIS FILE EXISTS
+#  --------------------
+#  Application forms ask things your CV does not state: work
+#  authorisation, notice period, salary expectation, per-skill years.
+#
+#  These answers are legally and financially significant. A model must never
+#  guess them. Anything written here is treated as fact and used verbatim;
+#  anything NOT here goes to a constrained AI call, and if that cannot answer
+#  from these facts plus your resume, the question comes back unanswered.
+#
+#  So: the more you fill in, the more gets answered. Leaving a field out is
+#  safe — it just means that question is left to you.
+#
+#  EVERY VALUE HERE MUST BE TRUE.
+# ===========================================================================
+
+# ── facts ───────────────────────────────────────────────────────────────
+# Matched against questions by a curated pattern table. Keys are fixed —
+# see `_QUESTION_PATTERNS` in backend/app/services/profile.py for the full list.
+facts:
+  # --- Identity & contact ---
+  full_name: "Jane Doe"
+  first_name: "Jane"
+  last_name: "Doe"
+  email: "jane.doe@example.com"
+  phone: "+44 7700 900000"
+  linkedin_url: "https://www.linkedin.com/in/jane-doe-example"
+  portfolio_url: "https://github.com/jane-doe-example"
+
+  # --- Location ---
+  location: "London, United Kingdom"
+  city: "London"
+  country: "United Kingdom"
+  postal_code: "SW1A 1AA"
+
+  # --- Work authorisation ---
+  # Booleans render as "Yes"/"No" on the form.
+  # Get these exactly right. A wrong answer here can invalidate an application
+  # or, worse, misrepresent you to an employer.
+  work_authorized: true
+  requires_sponsorship: false
+  work_authorization_status: "UK citizen — no sponsorship required"
+  citizenship: "United Kingdom"
+  security_clearance: "None"
+
+  # --- Logistics ---
+  willing_to_relocate: false
+  willing_to_commute: true
+  open_to_remote: true
+  open_to_onsite: true
+
+  # --- Compensation & availability ---
+  # Bare numbers are used for numeric form fields. A string like "£70,000"
+  # would be rejected by a number input, so the agent would ask you instead.
+  salary_expectation: "70000"
+  current_salary: "65000"
+  hourly_rate: "450"
+  notice_period: "1 month"
+
+  # --- Education ---
+  education_level: "Bachelor's degree"
+  university: "University of Manchester"
+  gpa: "3.7"
+
+  # --- Voluntary demographic questions ---
+  # These are optional on real forms. Delete any line you would rather answer
+  # yourself, or set it to "Prefer not to say".
+  gender: "Prefer not to say"
+  ethnicity: "Prefer not to say"
+  veteran_status: "I am not a protected veteran"
+  disability_status: "Prefer not to answer"
+
+  # --- Consent checkboxes ---
+  consent_acknowledge: true
+  consent_background_check: true
+
+# ── skill_years ─────────────────────────────────────────────────────────
+# Answers "How many years of experience do you have with X?"
+#
+# Matched case-insensitively as a substring, longest match first — so
+# "aws lambda" beats "aws" when the question mentions Lambda.
+#
+# ONLY list skills you genuinely have, with honest figures. A skill absent
+# from this list produces an interruption, not a guess. That is the intended
+# behaviour: being asked is better than being wrong.
+skill_years:
+  python: 6
+  django: 5
+  flask: 4
+  fastapi: 2
+  javascript: 4
+  typescript: 3
+  postgresql: 6
+  redis: 4
+  mongodb: 2
+  docker: 5
+  kubernetes: 1.5
+  aws: 3
+  terraform: 2
+  git: 7
+  linux: 6
+  ci/cd: 4
+  github actions: 3
+  rest: 6
+  graphql: 1
+  pytest: 5
+  agile: 5
+
+# ── exact_answers ───────────────────────────────────────────────────────
+# Highest-confidence path: an exact (whitespace/punctuation-normalised) match
+# on the question text. Use this for recurring questions the patterns miss.
+#
+# Tip: after a few runs, check which questions keep needing you:
+#   GET /api/v1/applications/{id}/answers   (source == "unknown")
+# Add those here and you stop being asked.
+exact_answers:
+  "Do you have a valid driving licence?": "Yes"
+  "Are you currently employed?": "Yes"
+  "How did you hear about this role?": "LinkedIn"
+  "Do you have experience working in an Agile environment?": "Yes"
+  "Are you comfortable working in a hybrid arrangement?": "Yes"
+
+# ── defaults ────────────────────────────────────────────────────────────
+# Fallback per input type when nothing else matches.
+#
+# Deliberately sparse. A default that silently answers an unknown question is
+# exactly the behaviour this system is designed to avoid — the safe outcome is
+# to ask you. Only set a default where a wrong value is harmless.
+defaults:
+  checkbox: "No"

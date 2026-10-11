@@ -1,0 +1,83 @@
+[project]
+name = "linkedin-job-agent"
+version = "1.0.0"
+description = "Scores jobs against your CV, drafts cover letters it fact-checks, and leaves the applying to you"
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# ── Ruff: lint + format ───────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # comprehensions
+    "UP",   # pyupgrade
+    "ASYNC",# async correctness
+    "S",    # bandit security
+    "BLE",  # blind except — must be justified with an explicit noqa
+    "RUF",
+]
+ignore = [
+    "E501",   # line length is handled by the formatter
+    "B008",   # FastAPI Depends() in defaults is the documented idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is the idiom in tests; blind except is fine in throwaway fixtures.
+"tests/**" = ["S", "B017", "BLE"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# ── mypy ──────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_equality = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["pypdf.*", "docx.*"]
+ignore_missing_imports = true
+
+# ── pytest ────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+# Makes `app` importable regardless of how pytest is invoked.
+#
+# `python -m pytest` puts the working directory on sys.path; the bare `pytest`
+# console script does NOT. Without this the suite passes locally and fails in
+# CI with "ModuleNotFoundError: No module named 'app'" — which is exactly what
+# happened on the first real pipeline run.
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+markers = [
+    "integration: requires Postgres (skipped unless it is up)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["app"]

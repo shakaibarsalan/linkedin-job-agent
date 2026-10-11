@@ -1,0 +1,47 @@
+# Keeps the build context small and — more importantly — keeps secrets and
+# personal data out of image layers. A file copied into a layer is recoverable
+# from the image even if a later layer deletes it.
+
+# ── Secrets & personal data ────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+data/
+resumes/
+backups/
+
+# ── VCS & CI ───────────────────────────────────────────────────────────
+.git/
+.github/
+.gitignore
+.gitattributes
+
+# ── Python artefacts ───────────────────────────────────────────────────
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+
+# ── Not needed at runtime ──────────────────────────────────────────────
+backend/tests/
+docs/
+n8n/
+samples/
+*.md
+!backend/README.md
+LICENSE
+
+# ── Editors / OS ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+**/.DS_Store
+**/Thumbs.db

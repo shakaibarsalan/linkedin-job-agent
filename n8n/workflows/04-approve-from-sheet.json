@@ -1,0 +1,261 @@
+{
+  "name": "LinkedIn Agent - Approve from the Sheet",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000001",
+      "name": "Every 10 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -720,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "0",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000003",
+      "name": "Read the sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -480,
+        380
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "REPLACE_ME",
+          "name": "Google Service Account account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find the rows you have said yes to.\n//\n// Deliberately generous about what counts as yes -- you are typing this on a\n// phone, and \"Yes \", \"y\", \"YES\", \"approve\" should all work. Deliberately\n// strict about everything else: anything that is not clearly a yes is left\n// alone, because the failure mode here is applying to a job you did not\n// choose.\n\nconst YES = /^\\s*(y|yes|ok|okay|approve|approved|go)\\s*$/i;\n\nconst rows = [];\nfor (const { json: r } of $input.all()) {\n  // The column may be titled a few ways depending on how you added it.\n  const mark = String(\n    r['Approve?'] ?? r['Approve'] ?? r['approve'] ?? r['APPROVE'] ?? ''\n  );\n  if (!YES.test(mark)) continue;\n\n  const id = String(r['ID'] ?? '').trim();\n  if (!/^\\d+$/.test(id)) continue;\n\n  // Only act on rows still waiting. Without this, a yes left in the sheet\n  // would be re-sent on every sweep for as long as it sat there.\n  const status = String(r['Status'] ?? '').toUpperCase();\n  if (!status.includes('WAITING')) continue;\n\n  rows.push({\n    id,\n    title: String(r['Job Title'] ?? ''),\n    company: String(r['Company'] ?? ''),\n    score: r['Score'] ?? '',\n    honesty: String(r['Honesty Flag'] ?? ''),\n  });\n}\n\nreturn rows.map((json) => ({ json }));"
+      },
+      "id": "b1000000-0000-4000-8000-000000000004",
+      "name": "Find your approvals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8000/api/v1/applications/{{ $json.id }}/review",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ decision: 'approve', notes: 'Approved from the Google Sheet' }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000005",
+      "name": "Approve it",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "LinkedIn Agent API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "0",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.id }}",
+            "Approve?": "done",
+            "Status": "SHORTLISTED - apply yourself"
+          },
+          "matchingColumns": [
+            "ID"
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000006",
+      "name": "Mark it as shortlisted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        300
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "REPLACE_ME",
+          "name": "Google Service Account account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// One message per sweep, not one per job.\nconst approved = $('Find your approvals').all().map((i) => i.json);\nif (!approved.length) return [];\n\nconst lines = [\n  `${approved.length} application${approved.length === 1 ? '' : 's'} approved from the sheet.`,\n  '',\n];\nfor (const a of approved) {\n  lines.push(`  ${a.score}  ${a.title} - ${a.company}`);\n  if (a.honesty) lines.push(`       ${a.honesty}`);\n}\nlines.push(\n  '',\n  'Nothing has been sent. These are on your shortlist: open each posting,',\n  'read the letter, and apply yourself.'\n);\n\nreturn [{ json: { title: 'Shortlisted', body: lines.join(String.fromCharCode(10)) } }];"
+      },
+      "id": "b1000000-0000-4000-8000-000000000007",
+      "name": "Tell me what was approved",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Approve from your phone\n\n### How to use it\n\n1. Open the Google Sheet on your phone.\n2. Find a row whose **Status** says `WAITING FOR YOU`.\n3. Type **`yes`** in the **Approve?** column.\n4. Within ten minutes this workflow approves it and the row changes to `SHORTLISTED - apply yourself`.\n\n`y`, `yes`, `ok`, `approve` and `go` all work, in any case. Anything else is ignored.\n\n### Set up once\n\nAdd a column headed **`Approve?`** to the sheet, to the right of `Link`. The sync never writes to that column, so what you type stays put. Put your Sheet ID in the three Google Sheets nodes.\n\n### Still nothing is sent\n\nApproving only puts a job on your shortlist. You open the posting and apply yourself, then mark it applied with `POST /api/v1/applications/{id}/applied`.\n\n### Why it will not double-count\n\nThe row must still say `WAITING FOR YOU`, the cell is rewritten immediately, and the database has a unique constraint on the job.",
+        "height": 620,
+        "width": 420,
+        "color": 5
+      },
+      "id": "b1000000-0000-4000-8000-000000000008",
+      "name": "How this works",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        760,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every 10 minutes": {
+      "main": [
+        [
+          {
+            "node": "Read the sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Read the sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the sheet": {
+      "main": [
+        [
+          {
+            "node": "Find your approvals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Find your approvals": {
+      "main": [
+        [
+          {
+            "node": "Approve it",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve it": {
+      "main": [
+        [
+          {
+            "node": "Mark it as shortlisted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Mark it as shortlisted": {
+      "main": [
+        [
+          {
+            "node": "Tell me what was approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "linkedin-agent"
+    }
+  ]
+}

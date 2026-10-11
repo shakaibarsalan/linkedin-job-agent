@@ -1,0 +1,91 @@
+# ---------------------------------------------------------------------------
+#  LinkedIn Job Agent
+#
+#    docker compose up -d --build                 # API + Postgres
+#    docker compose --profile n8n up -d --build   # ...plus a local n8n
+#    docker compose logs -f api
+#    docker compose down                          # stop (volumes survive)
+#
+#  Every published port binds 127.0.0.1 only. Docker's port publishing goes
+#  around a host firewall, so a 0.0.0.0 binding would be reachable from the
+#  internet on a VPS.
+# ---------------------------------------------------------------------------
+
+name: linkedin-job-agent
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-linkedin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-linkedin_agent}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:15434:5432"
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-linkedin} -d ${POSTGRES_DB:-linkedin_agent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Scoring, cover letters, the fact check and the review queue. Applies
+  # database migrations at startup.
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: linkedin-job-agent-api:latest
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: .env
+    environment:
+      TZ: ${TIMEZONE:-UTC}
+    depends_on:
+      postgres: {condition: service_healthy}
+    ports:
+      - "127.0.0.1:8088:8000"
+    volumes:
+      - appdata:/data
+      # Your screening-question facts. Copy config/answers.example.yaml first.
+      - ./config/answers.yaml:/data/profile/answers.yaml:ro
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  # Optional. Import the workflows in n8n/workflows and point their HTTP
+  # Request nodes at http://api:8000 with your X-API-Key.
+  n8n:
+    image: n8nio/n8n:1.88.0
+    profiles: ["n8n"]
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      GENERIC_TIMEZONE: ${TIMEZONE:-UTC}
+      N8N_SECURE_COOKIE: "false"
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8ndata:/home/node/.n8n
+
+volumes:
+  pgdata:
+  appdata:
+  n8ndata:

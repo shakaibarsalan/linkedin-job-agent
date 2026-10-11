@@ -1,0 +1,11 @@
+Dear Northwind Analytics team,
+
+I build and run Python APIs for a living. At Example Labs I own FastAPI services
+on PostgreSQL that handle about a million requests a day, and I moved the
+platform onto Docker and AWS ECS, which took deploys from forty minutes to six.
+
+Your ingestion API sounds like the work I enjoy most, and I would like to talk
+about where my Redis and PostgreSQL experience fits in it.
+
+Best regards,
+Jane Doe

@@ -1,0 +1,12 @@
+Senior Backend Engineer — Northwind Analytics (remote)
+
+We are looking for a backend engineer to own our ingestion API.
+
+Requirements:
+- 5+ years of Python in production
+- FastAPI or Django, PostgreSQL, Redis
+- Docker and Kubernetes
+- Kafka or another event streaming platform
+- AWS, ideally with an AWS certification
+
+Nice to have: Terraform, Go.

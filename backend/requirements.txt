@@ -1,0 +1,27 @@
+# Runtime dependencies. Pinned to minor ranges: reproducible enough for a
+# deterministic deploy, loose enough to pick up security patches on rebuild.
+# All of these publish linux/arm64 wheels — verified against the aarch64 target.
+
+# ── Web / API ─────────────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# ── Config & validation ───────────────────────────────────────────────
+pydantic==2.10.4
+pydantic-settings==2.7.0
+PyYAML==6.0.2
+
+# ── Database ──────────────────────────────────────────────────────────
+SQLAlchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+
+# ── HTTP client (AI providers, notifications) ─────────────────────────
+httpx[socks]==0.28.1
+
+# ── Structured logging ────────────────────────────────────────────────
+structlog==24.4.0
+
+# ── Resume parsing ────────────────────────────────────────────────────
+pypdf==5.1.0
+python-docx==1.1.2

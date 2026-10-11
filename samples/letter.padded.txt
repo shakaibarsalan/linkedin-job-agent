@@ -1,0 +1,11 @@
+Dear Northwind Analytics team,
+
+With 8 years of experience building Python backends, I am confident I am the
+engineer you are looking for. At Example Labs I run FastAPI services on
+PostgreSQL and orchestrate them with Kubernetes, streaming events through Kafka.
+
+As an AWS Certified Solutions Architect, I also manage our infrastructure in
+Terraform, so I can own your ingestion API from day one.
+
+Best regards,
+Jane Doe

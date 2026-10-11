@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Line-ending policy.
+#
+# THIS FILE IS LOAD-BEARING. The repository is authored on Windows and deployed
+# to Linux. Without it, git checks out shell scripts with CRLF endings and the
+# server fails with:
+#
+#     /usr/bin/env: 'bash\r': No such file or directory
+#
+# which is a genuinely confusing way to discover a line-ending problem at 2am.
+# Everything that is executed, parsed, or built on Linux is pinned to LF.
+# ---------------------------------------------------------------------------
+
+# Default: let git normalise text, but never guess for the files below.
+* text=auto eol=lf
+
+# Executed by a Linux shell — MUST be LF.
+*.sh            text eol=lf
+*.bash          text eol=lf
+
+# Parsed by Linux tooling — MUST be LF.
+*.py            text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.sql           text eol=lf
+*.toml          text eol=lf
+*.json          text eol=lf
+*.md            text eol=lf
+*.txt           text eol=lf
+*.cfg           text eol=lf
+*.ini           text eol=lf
+
+# Docker parses these; a stray CR ends up inside ENV values.
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+.dockerignore   text eol=lf
+.gitignore      text eol=lf
+.env.example    text eol=lf
+
+# Binary — never touch.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.docx          binary
+*.gz            binary
+*.zip           binary
+*.enc           binary
+
+# Keep generated/vendored files out of diffs and language statistics.
+n8n/workflows/*.json    linguist-generated=true
